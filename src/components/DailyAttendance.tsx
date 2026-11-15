@@ -258,7 +258,7 @@ export const DailyAttendance: React.FC<DailyAttendanceProps> = ({
   const saveButtonLabel = isAlreadySaved ? 'Saved' : 'Save';
 
   return (
-    <div className="pb-32">
+    <div className="pb-24">
       {/* Sticky Live Counter Bar (Total, Present, Leave, OD) */}
       <StickyCounter
         total={counts.total}
@@ -406,73 +406,6 @@ export const DailyAttendance: React.FC<DailyAttendanceProps> = ({
                 </span>
               ) : null}
             </div>
-          </div>
-        </div>
-
-        {/* Primary Action Toolbar Card (Save, Download PDF, WhatsApp, Copy) */}
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-2.5 shadow-xs flex items-center justify-between gap-2 flex-wrap">
-          {/* Main Primary Button: Save (placed next to Download PDF) */}
-          <div className="flex items-center gap-2 flex-1 min-w-[260px]">
-            <button
-              type="button"
-              onClick={onSaveDay}
-              disabled={isSaving}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl font-bold text-xs sm:text-sm shadow-sm active:scale-95 transition-all touch-target cursor-pointer ${
-                isAlreadySaved
-                  ? 'bg-emerald-700 text-white hover:bg-emerald-800'
-                  : 'bg-emerald-600 text-white hover:bg-emerald-700'
-              }`}
-              title="Save snapshot for this date"
-            >
-              {isSaving ? (
-                <Loader2 size={16} className="animate-spin text-white" />
-              ) : isAlreadySaved ? (
-                <Check size={16} className="text-white" />
-              ) : (
-                <Save size={16} className="text-white" />
-              )}
-              <span>{saveButtonLabel}</span>
-            </button>
-
-            {/* Keep Download PDF Button (next to Save) */}
-            <button
-              type="button"
-              onClick={onDownloadPDF}
-              disabled={isPdfGenerating}
-              className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-semibold text-xs sm:text-sm active:scale-95 transition-all touch-target cursor-pointer disabled:opacity-50"
-              title="Download Attendance PDF report"
-            >
-              {isPdfGenerating ? (
-                <Loader2 size={16} className="animate-spin text-emerald-600" />
-              ) : (
-                <Download size={16} className="text-emerald-600 dark:text-emerald-400" />
-              )}
-              <span className="hidden xs:inline">{isPdfGenerating ? 'PDF...' : 'Download PDF'}</span>
-              <span className="xs:hidden">PDF</span>
-            </button>
-          </div>
-
-          {/* Quick Share Actions: WhatsApp & Copy Report text */}
-          <div className="flex items-center gap-1.5 shrink-0 ml-auto">
-            <button
-              type="button"
-              onClick={onSendWhatsApp}
-              className="flex items-center gap-1 py-2 px-3 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs shadow-xs active:scale-95 transition-all touch-target cursor-pointer"
-              title="Send report directly to WhatsApp"
-            >
-              <MessageSquare size={14} />
-              <span>WhatsApp</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={onCopyReport}
-              className="flex items-center gap-1 py-2 px-3 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-semibold text-xs active:scale-95 transition-all touch-target cursor-pointer"
-              title="Copy attendance report text to clipboard"
-            >
-              {isCopied ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />}
-              <span>{isCopied ? 'Copied!' : 'Copy'}</span>
-            </button>
           </div>
         </div>
 
@@ -706,65 +639,72 @@ export const DailyAttendance: React.FC<DailyAttendanceProps> = ({
         onSaveReason={handleSaveReasonFromSheet}
       />
 
-      {/* Floating Bottom Bar for Instant Action (Save, Download PDF, WhatsApp) */}
+      {/* Single Bottom Action Bar (Save, PDF, WhatsApp, Copy) */}
       <div className="fixed bottom-0 left-0 right-0 z-20 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 safe-bottom shadow-lg">
-        <div className="max-w-2xl mx-auto px-3 py-2 flex items-center justify-between gap-2">
-          <div className="flex flex-col min-w-0">
-            <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">
-              {hasUnsavedChanges ? 'Unsaved changes' : isAlreadySaved ? 'All saved' : 'Ready to save'}
-            </span>
-            <span className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">
-              {counts.leave} L · {counts.od} OD · {counts.present} P
-            </span>
-          </div>
-
-          <div className="flex items-center gap-1.5 shrink-0">
-            {/* Primary Save Button */}
+        <div className="max-w-2xl mx-auto px-3 py-2.5">
+          <div className="grid grid-cols-4 gap-1.5 sm:gap-2">
+            {/* 1. Save Button */}
             <button
               type="button"
               onClick={onSaveDay}
               disabled={isSaving}
-              className={`flex items-center gap-1.5 py-2 px-3.5 rounded-xl text-xs sm:text-sm font-bold shadow-md active:scale-95 transition-all touch-target cursor-pointer ${
+              className={`h-10 px-1.5 sm:px-3 rounded-xl font-bold text-[11px] sm:text-sm flex items-center justify-center gap-1 sm:gap-1.5 shadow-xs active:scale-95 transition-all cursor-pointer disabled:opacity-60 min-w-0 ${
                 isAlreadySaved
                   ? 'bg-emerald-700 text-white hover:bg-emerald-800'
                   : 'bg-emerald-600 text-white hover:bg-emerald-700'
               }`}
+              title="Save snapshot for this date"
             >
               {isSaving ? (
-                <Loader2 size={16} className="animate-spin text-white" />
+                <Loader2 size={15} className="animate-spin text-white shrink-0" />
               ) : isAlreadySaved ? (
-                <Check size={16} className="text-white" />
+                <Check size={15} className="text-white shrink-0" />
               ) : (
-                <Save size={16} className="text-white" />
+                <Save size={15} className="text-white shrink-0" />
               )}
-              <span>{saveButtonLabel}</span>
+              <span className="truncate">{saveButtonLabel}</span>
             </button>
 
-            {/* Download PDF button next to Save */}
+            {/* 2. PDF Button */}
             <button
               type="button"
               onClick={onDownloadPDF}
               disabled={isPdfGenerating}
-              className="flex items-center gap-1.5 py-2 px-3 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold text-xs sm:text-sm active:scale-95 transition-all touch-target cursor-pointer disabled:opacity-50"
-              title="Download Attendance PDF"
+              className="h-10 px-1.5 sm:px-3 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold text-[11px] sm:text-sm flex items-center justify-center gap-1 sm:gap-1.5 active:scale-95 transition-all cursor-pointer disabled:opacity-50 min-w-0"
+              title="Download Attendance PDF report"
             >
               {isPdfGenerating ? (
-                <Loader2 size={15} className="animate-spin text-emerald-600" />
+                <Loader2 size={15} className="animate-spin text-emerald-600 shrink-0" />
               ) : (
-                <Download size={15} className="text-emerald-600 dark:text-emerald-400" />
+                <Download size={15} className="text-emerald-600 dark:text-emerald-400 shrink-0" />
               )}
-              <span className="hidden xs:inline">{isPdfGenerating ? 'PDF...' : 'PDF'}</span>
+              <span className="truncate">{isPdfGenerating ? 'PDF...' : 'PDF'}</span>
             </button>
 
-            {/* WhatsApp */}
+            {/* 3. WhatsApp Button */}
             <button
               type="button"
               onClick={onSendWhatsApp}
-              className="flex items-center gap-1 py-2 px-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs shadow-xs active:scale-95 transition-all touch-target cursor-pointer"
-              title="Send to WhatsApp"
+              className="h-10 px-1.5 sm:px-3 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-[11px] sm:text-sm flex items-center justify-center gap-1 sm:gap-1.5 shadow-xs active:scale-95 transition-all cursor-pointer min-w-0"
+              title="Send report directly to WhatsApp"
             >
-              <MessageSquare size={15} />
-              <span className="hidden sm:inline">WhatsApp</span>
+              <MessageSquare size={15} className="shrink-0" />
+              <span className="truncate">WhatsApp</span>
+            </button>
+
+            {/* 4. Copy Button */}
+            <button
+              type="button"
+              onClick={onCopyReport}
+              className="h-10 px-1.5 sm:px-3 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold text-[11px] sm:text-sm flex items-center justify-center gap-1 sm:gap-1.5 active:scale-95 transition-all cursor-pointer min-w-0"
+              title="Copy attendance report text to clipboard"
+            >
+              {isCopied ? (
+                <Check size={15} className="text-emerald-600 shrink-0" />
+              ) : (
+                <Copy size={15} className="text-slate-600 dark:text-slate-300 shrink-0" />
+              )}
+              <span className="truncate">{isCopied ? 'Copied!' : 'Copy'}</span>
             </button>
           </div>
         </div>

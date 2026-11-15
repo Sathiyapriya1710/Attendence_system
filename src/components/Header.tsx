@@ -1,10 +1,9 @@
 import React from 'react';
-import { Calendar, FileText, History, Users, Settings, Moon, Sun, CheckCircle } from 'lucide-react';
+import { Calendar, History, Users, Moon, Sun, CheckCircle } from 'lucide-react';
 
 interface HeaderProps {
   currentTab: 'attendance' | 'history' | 'roster';
   onSelectTab: (tab: 'attendance' | 'history' | 'roster') => void;
-  onOpenSettings: () => void;
   darkMode: boolean;
   onToggleDarkMode: () => void;
   classNameTitle: string;
@@ -15,7 +14,6 @@ interface HeaderProps {
 export const Header: React.FC<HeaderProps> = ({
   currentTab,
   onSelectTab,
-  onOpenSettings,
   darkMode,
   onToggleDarkMode,
   classNameTitle,
@@ -63,16 +61,6 @@ export const Header: React.FC<HeaderProps> = ({
               title={darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
             >
               {darkMode ? <Sun size={18} className="text-amber-400" /> : <Moon size={18} />}
-            </button>
-
-            {/* Settings button */}
-            <button
-              type="button"
-              onClick={onOpenSettings}
-              className="p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors touch-target flex items-center justify-center"
-              title="Settings"
-            >
-              <Settings size={18} />
             </button>
           </div>
         </div>

@@ -8,7 +8,6 @@ import { Header } from './components/Header';
 import { DailyAttendance } from './components/DailyAttendance';
 import { HistoryView } from './components/HistoryView';
 import { RosterManager } from './components/RosterManager';
-import { SettingsModal } from './components/SettingsModal';
 
 export const App: React.FC = () => {
   const [students, setStudents] = useState<Student[]>([]);
@@ -28,7 +27,6 @@ export const App: React.FC = () => {
   });
 
   const [currentTab, setCurrentTab] = useState<'attendance' | 'history' | 'roster'>('attendance');
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   // Unsaved changes tracking
@@ -557,12 +555,6 @@ export const App: React.FC = () => {
     }
   };
 
-  // Settings Save
-  const handleSaveSettings = async (newSettings: Partial<AppSettings>) => {
-    const updated = await attendanceService.saveSettings(newSettings);
-    setSettings(updated);
-  };
-
   const handleUpdateSalutation = async (newSalutation: string) => {
     const updated = await attendanceService.saveSettings({ facultySalutation: newSalutation });
     setSettings(updated);
@@ -578,42 +570,6 @@ export const App: React.FC = () => {
   const handleToggleDarkMode = async () => {
     const updated = await attendanceService.saveSettings({ darkMode: !settings.darkMode });
     setSettings(updated);
-  };
-
-  const handleResetAllData = async () => {
-    localStorage.clear();
-    const defaultStudents = await attendanceService.resetStudentsToDefault();
-    setStudents(defaultStudents);
-    setHistory({});
-    const defaultAtt: Record<string, AttendanceStatus> = {};
-    defaultStudents.forEach((s) => {
-      defaultAtt[s.id] = 'present';
-    });
-    setAttendance(defaultAtt);
-    setOdReasons({});
-    setLeaveReasons({});
-    setHasUnsavedChanges(false);
-    setSettings({
-      facultySalutation: 'Mam',
-      facultyGreetingTime: 'auto',
-      facultyPhone: '',
-      className: 'II Year AI&DS - B',
-      darkMode: false,
-      recentOdReasons: ['Hackathon', 'Sports', 'Paper presentation', 'Symposium', 'Workshop'],
-      recentLeaveReasons: ['Fever', 'Family function', 'Medical', 'Personal', 'Out of station'],
-    });
-  };
-
-  const handleReloadAfterImport = async () => {
-    const [loadedStudents, loadedHistory, loadedSettings] = await Promise.all([
-      attendanceService.getStudents(),
-      attendanceService.getAllAttendanceHistory(),
-      attendanceService.getSettings(),
-    ]);
-    setStudents(loadedStudents);
-    setHistory(loadedHistory);
-    setSettings(loadedSettings);
-    loadDateAttendance(currentDate, loadedHistory, loadedStudents);
   };
 
   if (isLoading) {
@@ -636,7 +592,6 @@ export const App: React.FC = () => {
       <Header
         currentTab={currentTab}
         onSelectTab={requestTabChange}
-        onOpenSettings={() => setIsSettingsOpen(true)}
         darkMode={settings.darkMode}
         onToggleDarkMode={handleToggleDarkMode}
         classNameTitle={settings.className}
@@ -692,7 +647,6 @@ export const App: React.FC = () => {
             }}
             onDeleteRecord={handleDeleteRecord}
             onBack={() => setCurrentTab('attendance')}
-            onDataImported={handleReloadAfterImport}
           />
         )}
 
@@ -775,14 +729,6 @@ export const App: React.FC = () => {
         </div>
       )}
 
-      {/* Settings Modal */}
-      <SettingsModal
-        isOpen={isSettingsOpen}
-        onClose={() => setIsSettingsOpen(false)}
-        settings={settings}
-        onSaveSettings={handleSaveSettings}
-        onResetAllData={handleResetAllData}
-      />
     </div>
   );
 };

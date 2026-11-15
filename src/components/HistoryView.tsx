@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { Calendar, Users, ChevronRight, Trash2, ArrowLeft, Download, Upload, CheckCircle2, AlertTriangle, Search, Filter, Loader2, FileDown, FileText } from 'lucide-react';
+import { Calendar, Users, ChevronRight, Trash2, ArrowLeft, Search, Loader2, FileDown, FileText } from 'lucide-react';
 import { Student, DailyAttendanceRecord } from '../types';
-import { formatDisplayDate, formatDateAndWeekday, formatSavedDateTime } from '../utils/dateUtils';
+import { formatDateAndWeekday, formatSavedDateTime } from '../utils/dateUtils';
 import { attendanceService } from '../services/attendanceService';
 import { downloadAttendancePDF } from '../utils/pdfGenerator';
 import { ODStudentEntry } from '../utils/reportGenerator';
@@ -13,7 +13,6 @@ interface HistoryViewProps {
   onSelectDate: (date: string) => void;
   onDeleteRecord: (date: string) => Promise<void>;
   onBack: () => void;
-  onDataImported: () => void;
   classNameTitle?: string;
 }
 
@@ -23,14 +22,12 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
   onSelectDate,
   onDeleteRecord,
   onBack,
-  onDataImported,
   classNameTitle = 'II Year AI&DS - B',
 }) => {
   const [activeTab, setActiveTab] = useState<'dates' | 'stats'>('dates');
   const [searchStudent, setSearchStudent] = useState('');
   const [statsFilter, setStatsFilter] = useState<'all' | 'critical' | 'warning' | 'good'>('all');
   const [deleteConfirmDate, setDeleteConfirmDate] = useState<string | null>(null);
-  const [importStatus, setImportStatus] = useState<string | null>(null);
   const [downloadingDate, setDownloadingDate] = useState<string | null>(null);
   const [selectedStudentForReport, setSelectedStudentForReport] = useState<Student | null>(null);
 
@@ -98,45 +95,6 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
     }
   };
 
-  const handleExport = async () => {
-    try {
-      const jsonStr = await attendanceService.exportBackup();
-      const blob = new Blob([jsonStr], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `attendance_backup_${new Date().toISOString().slice(0, 10)}.json`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    } catch (err) {
-      alert('Failed to export data');
-    }
-  };
-
-  const handleImportFile = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = async (event) => {
-      const content = event.target?.result as string;
-      if (content) {
-        const result = await attendanceService.importBackup(content);
-        if (result.success) {
-          setImportStatus('Data restored successfully!');
-          onDataImported();
-          setTimeout(() => setImportStatus(null), 3000);
-        } else {
-          alert(`Import failed: ${result.message}`);
-        }
-      }
-    };
-    reader.readAsText(file);
-    e.target.value = '';
-  };
-
   // If a student is selected for detailed report, show StudentReportView
   if (selectedStudentForReport) {
     return (
@@ -161,32 +119,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
           <ArrowLeft size={16} />
           <span>Back to Attendance</span>
         </button>
-
-        <div className="flex items-center gap-1.5">
-          <button
-            type="button"
-            onClick={handleExport}
-            className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700"
-            title="Download JSON Backup"
-          >
-            <Download size={13} />
-            <span>Export</span>
-          </button>
-
-          <label className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700 cursor-pointer">
-            <Upload size={13} />
-            <span>Import</span>
-            <input type="file" accept=".json" onChange={handleImportFile} className="hidden" />
-          </label>
-        </div>
       </div>
-
-      {importStatus && (
-        <div className="p-3 bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 rounded-xl text-xs font-bold flex items-center gap-2">
-          <CheckCircle2 size={16} />
-          <span>{importStatus}</span>
-        </div>
-      )}
 
       {/* Tabs Switcher: Saved Records vs Student Reports */}
       <div className="flex p-1 bg-slate-200 dark:bg-slate-800/80 rounded-xl">
