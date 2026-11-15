@@ -1,5 +1,5 @@
 import React from 'react';
-import { FileText, RotateCcw, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { RotateCcw, AlertCircle, CheckCircle2 } from 'lucide-react';
 
 interface StickyCounterProps {
   total: number;
@@ -7,7 +7,6 @@ interface StickyCounterProps {
   leave: number;
   od: number;
   totalAbsent: number;
-  onOpenReport: () => void;
   onResetDay: () => void;
   activeFilter: string;
   onSelectFilter: (filter: string) => void;
@@ -19,7 +18,6 @@ export const StickyCounter: React.FC<StickyCounterProps> = ({
   leave,
   od,
   totalAbsent,
-  onOpenReport,
   onResetDay,
   activeFilter,
   onSelectFilter,
@@ -110,16 +108,7 @@ export const StickyCounter: React.FC<StickyCounterProps> = ({
               title="Reset all students to Present"
             >
               <RotateCcw size={13} />
-              <span>Reset</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={onOpenReport}
-              className="inline-flex items-center gap-1 px-3 py-1 text-xs font-bold rounded-md bg-emerald-600 text-white hover:bg-emerald-700 active:scale-95 shadow-sm transition-all touch-target sm:min-w-0"
-            >
-              <FileText size={13} />
-              <span>Report</span>
+              <span>Reset Day</span>
             </button>
           </div>
         </div>

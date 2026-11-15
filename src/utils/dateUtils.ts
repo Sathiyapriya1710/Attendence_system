@@ -78,3 +78,67 @@ export function getGreeting(): string {
   if (hour < 17) return 'Good afternoon';
   return 'Good evening';
 }
+
+/**
+ * Returns formatted saved date & time: "09 Nov 2026, 09:30 AM"
+ */
+export function formatSavedDateTime(isoOrDateStr: string): string {
+  try {
+    const d = new Date(isoOrDateStr);
+    if (isNaN(d.getTime())) return isoOrDateStr;
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = MONTHS[d.getMonth()];
+    const year = d.getFullYear();
+    const timeStr = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return `${day} ${month} ${year}, ${timeStr}`;
+  } catch {
+    return isoOrDateStr;
+  }
+}
+
+/**
+ * Returns full date with weekday: "Monday, 09 Nov 2026"
+ */
+export function formatDateAndWeekday(isoDateStr: string): string {
+  return formatFullReportDate(isoDateStr);
+}
+
+/**
+ * Returns date in format: "03 Nov, Mon"
+ */
+export function formatStudentReportDate(isoDateStr: string): string {
+  try {
+    const d = parseISODate(isoDateStr);
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = MONTHS[d.getMonth()];
+    const weekday = SHORT_DAYS[d.getDay()];
+    return `${day} ${month}, ${weekday}`;
+  } catch {
+    return isoDateStr;
+  }
+}
+
+/**
+ * Extracts "YYYY-MM" from "YYYY-MM-DD"
+ */
+export function getYearMonth(isoDateStr: string): string {
+  return isoDateStr.slice(0, 7);
+}
+
+/**
+ * Formats "YYYY-MM" to readable label: "November 2026"
+ */
+export function formatMonthName(yearMonth: string): string {
+  try {
+    const [year, month] = yearMonth.split('-').map(Number);
+    const fullMonths = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+    return `${fullMonths[(month || 1) - 1]} ${year}`;
+  } catch {
+    return yearMonth;
+  }
+}
+
+

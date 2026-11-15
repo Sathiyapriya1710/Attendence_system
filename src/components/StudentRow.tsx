@@ -6,8 +6,10 @@ interface StudentRowProps {
   student: Student;
   status: AttendanceStatus;
   odReason?: string;
+  leaveReason?: string;
   onChangeStatus: (studentId: string, status: AttendanceStatus) => void;
   onOpenODSheet: (studentId: string) => void;
+  onOpenLeaveSheet: (studentId: string) => void;
   isSelectionMode?: boolean;
   isSelected?: boolean;
   onToggleSelect?: (studentId: string) => void;
@@ -17,8 +19,10 @@ export const StudentRow: React.FC<StudentRowProps> = ({
   student,
   status,
   odReason,
+  leaveReason,
   onChangeStatus,
   onOpenODSheet,
+  onOpenLeaveSheet,
   isSelectionMode = false,
   isSelected = false,
   onToggleSelect,
@@ -43,6 +47,12 @@ export const StudentRow: React.FC<StudentRowProps> = ({
     onOpenODSheet(student.id);
   };
 
+  const handleTapLeave = () => {
+    // When L is tapped, change status to leave and open leave reason sheet
+    onChangeStatus(student.id, 'leave');
+    onOpenLeaveSheet(student.id);
+  };
+
   return (
     <div
       className={`student-row-transition rounded-xl border p-2.5 shadow-xs transition-all ${getRowStyle(
@@ -55,7 +65,7 @@ export const StudentRow: React.FC<StudentRowProps> = ({
           <button
             type="button"
             onClick={() => onToggleSelect && onToggleSelect(student.id)}
-            className="p-1 text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 shrink-0 touch-target flex items-center justify-center"
+            className="p-1 text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 shrink-0 touch-target flex items-center justify-center cursor-pointer"
             aria-label={`Select ${student.name}`}
           >
             {isSelected ? (
@@ -88,7 +98,7 @@ export const StudentRow: React.FC<StudentRowProps> = ({
               <button
                 type="button"
                 onClick={() => onOpenODSheet(student.id)}
-                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-100 dark:bg-blue-950/80 text-blue-800 dark:text-blue-300 border border-blue-200 dark:border-blue-800 text-[11px] font-semibold hover:bg-blue-200 dark:hover:bg-blue-900 transition-colors group"
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-100 dark:bg-blue-950/80 text-blue-800 dark:text-blue-300 border border-blue-200 dark:border-blue-800 text-[11px] font-semibold hover:bg-blue-200 dark:hover:bg-blue-900 transition-colors group cursor-pointer"
                 title="Tap to edit OD reason"
               >
                 <Tag size={11} className="text-blue-600 dark:text-blue-400" />
@@ -96,6 +106,24 @@ export const StudentRow: React.FC<StudentRowProps> = ({
                   {odReason && odReason.trim() ? `OD: ${odReason.trim()}` : 'OD: add reason'}
                 </span>
                 <Edit3 size={10} className="opacity-60 group-hover:opacity-100 text-blue-700 dark:text-blue-300" />
+              </button>
+            </div>
+          )}
+
+          {/* Small red label under name when marked Leave */}
+          {status === 'leave' && (
+            <div className="mt-1">
+              <button
+                type="button"
+                onClick={() => onOpenLeaveSheet(student.id)}
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-rose-100 dark:bg-rose-950/80 text-rose-800 dark:text-rose-300 border border-rose-200 dark:border-rose-800 text-[11px] font-semibold hover:bg-rose-200 dark:hover:bg-rose-900 transition-colors group cursor-pointer"
+                title="Tap to edit leave reason"
+              >
+                <Tag size={11} className="text-rose-600 dark:text-rose-400" />
+                <span className="truncate max-w-[170px] sm:max-w-[240px]">
+                  {leaveReason && leaveReason.trim() ? `Leave: ${leaveReason.trim()}` : 'Leave: add reason'}
+                </span>
+                <Edit3 size={10} className="opacity-60 group-hover:opacity-100 text-rose-700 dark:text-rose-300" />
               </button>
             </div>
           )}
@@ -108,7 +136,7 @@ export const StudentRow: React.FC<StudentRowProps> = ({
             type="button"
             aria-label={`Mark ${student.name} as Present`}
             onClick={() => onChangeStatus(student.id, 'present')}
-            className={`w-11 h-10 min-w-[42px] min-h-[40px] rounded-lg text-sm font-extrabold flex items-center justify-center transition-transform active:scale-90 ${
+            className={`w-11 h-10 min-w-[42px] min-h-[40px] rounded-lg text-sm font-extrabold flex items-center justify-center transition-transform active:scale-90 cursor-pointer ${
               status === 'present'
                 ? 'bg-emerald-600 text-white shadow-sm ring-2 ring-emerald-500 ring-offset-1 dark:ring-offset-slate-900'
                 : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 hover:text-emerald-700 dark:hover:text-emerald-300'
@@ -121,8 +149,8 @@ export const StudentRow: React.FC<StudentRowProps> = ({
           <button
             type="button"
             aria-label={`Mark ${student.name} as Leave (Absent)`}
-            onClick={() => onChangeStatus(student.id, 'leave')}
-            className={`w-11 h-10 min-w-[42px] min-h-[40px] rounded-lg text-sm font-extrabold flex items-center justify-center transition-transform active:scale-90 ${
+            onClick={handleTapLeave}
+            className={`w-11 h-10 min-w-[42px] min-h-[40px] rounded-lg text-sm font-extrabold flex items-center justify-center transition-transform active:scale-90 cursor-pointer ${
               status === 'leave'
                 ? 'bg-rose-600 text-white shadow-sm ring-2 ring-rose-500 ring-offset-1 dark:ring-offset-slate-900'
                 : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-rose-50 dark:hover:bg-rose-950/50 hover:text-rose-700 dark:hover:text-rose-300'
@@ -136,7 +164,7 @@ export const StudentRow: React.FC<StudentRowProps> = ({
             type="button"
             aria-label={`Mark ${student.name} as On Duty (OD)`}
             onClick={handleTapOD}
-            className={`w-11 h-10 min-w-[42px] min-h-[40px] rounded-lg text-xs font-extrabold flex items-center justify-center transition-transform active:scale-90 ${
+            className={`w-11 h-10 min-w-[42px] min-h-[40px] rounded-lg text-xs font-extrabold flex items-center justify-center transition-transform active:scale-90 cursor-pointer ${
               status === 'od'
                 ? 'bg-blue-600 text-white shadow-sm ring-2 ring-blue-500 ring-offset-1 dark:ring-offset-slate-900'
                 : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-blue-50 dark:hover:bg-blue-950/50 hover:text-blue-700 dark:hover:text-blue-300'

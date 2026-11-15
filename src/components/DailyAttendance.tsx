@@ -6,19 +6,25 @@ import {
   Search,
   X,
   RotateCcw,
-  FileText,
   CheckSquare,
   Square,
   Edit2,
   Check,
   User,
-  GraduationCap
+  GraduationCap,
+  Download,
+  Save,
+  MessageSquare,
+  Copy,
+  Clock,
+  Loader2,
+  Share2
 } from 'lucide-react';
 import { Student, AttendanceStatus } from '../types';
 import { StudentRow } from './StudentRow';
 import { StickyCounter } from './StickyCounter';
 import { ODReasonSheet } from './ODReasonSheet';
-import { shiftDate, formatDisplayDate, getTodayISODate } from '../utils/dateUtils';
+import { shiftDate, formatDisplayDate, getTodayISODate, formatSavedDateTime } from '../utils/dateUtils';
 
 interface DailyAttendanceProps {
   currentDate: string;
@@ -26,17 +32,31 @@ interface DailyAttendanceProps {
   students: Student[];
   attendance: Record<string, AttendanceStatus>;
   odReasons: Record<string, string>;
+  leaveReasons: Record<string, string>;
   onStatusChange: (studentId: string, status: AttendanceStatus) => void;
   onSaveODReason: (studentId: string, reason: string) => void;
+  onSaveLeaveReason: (studentId: string, reason: string) => void;
   onBatchStatusChange: (studentIds: string[], status: AttendanceStatus, reason?: string) => void;
   onResetDay: () => void;
-  onMarkAllPresent: () => void;
-  onOpenReport: () => void;
   classNameTitle: string;
   onChangeClassName: (newClassName: string) => void;
   facultySalutation: string;
   onChangeFacultySalutation: (newSalutation: string) => void;
   recentOdReasons: string[];
+  recentLeaveReasons: string[];
+  // Save & Status props
+  onSaveDay: () => void;
+  isSavedForDate: boolean;
+  hasUnsavedChanges: boolean;
+  savedAtTime?: string;
+  isSaving?: boolean;
+  saveMessage?: string | null;
+  // Direct background report actions
+  onDownloadPDF: () => void;
+  onSendWhatsApp: () => void;
+  onCopyReport: () => void;
+  isPdfGenerating?: boolean;
+  isCopied?: boolean;
 }
 
 export const DailyAttendance: React.FC<DailyAttendanceProps> = ({
@@ -45,23 +65,35 @@ export const DailyAttendance: React.FC<DailyAttendanceProps> = ({
   students,
   attendance,
   odReasons,
+  leaveReasons,
   onStatusChange,
   onSaveODReason,
+  onSaveLeaveReason,
   onBatchStatusChange,
   onResetDay,
-  onMarkAllPresent,
-  onOpenReport,
   classNameTitle,
   onChangeClassName,
   facultySalutation,
   onChangeFacultySalutation,
   recentOdReasons,
+  recentLeaveReasons,
+  onSaveDay,
+  isSavedForDate,
+  hasUnsavedChanges,
+  savedAtTime,
+  isSaving,
+  saveMessage,
+  onDownloadPDF,
+  onSendWhatsApp,
+  onCopyReport,
+  isPdfGenerating,
+  isCopied,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<string>('all');
   const [showResetConfirm, setShowResetConfirm] = useState(false);
 
-  // Editable Class Name and Faculty state
+  // Editable Class Name state
   const [isEditingClass, setIsEditingClass] = useState(false);
   const [tempClassName, setTempClassName] = useState(classNameTitle);
 
@@ -69,13 +101,16 @@ export const DailyAttendance: React.FC<DailyAttendanceProps> = ({
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
-  // OD Reason Bottom Sheet State
+  // Bottom Sheet State (OD or Leave)
   const [sheetStudentIds, setSheetStudentIds] = useState<string[] | null>(null);
+  const [sheetType, setSheetType] = useState<'od' | 'leave'>('od');
 
   const todayStr = getTodayISODate();
   const isToday = currentDate === todayStr;
 
   // Live Counts Calculation: Total, Present, Leave, OD
+  // RULE: Present + Leave + OD must always equal the total number of students.
+  // RULE: OD students NEVER counted as absent. Total Absent = leave only.
   const counts = useMemo(() => {
     let present = 0;
     let leave = 0;
@@ -89,7 +124,6 @@ export const DailyAttendance: React.FC<DailyAttendanceProps> = ({
     });
 
     const total = students.length;
-    // INVARIANT: OD students NEVER counted as absent. Total Absent = leave only.
     const totalAbsent = leave;
 
     return {
@@ -150,7 +184,7 @@ export const DailyAttendance: React.FC<DailyAttendanceProps> = ({
     if (ids.length === 0) return;
 
     if (status === 'od') {
-      // Open OD reason sheet for all selected
+      setSheetType('od');
       setSheetStudentIds(ids);
     } else {
       onBatchStatusChange(ids, status);
@@ -159,20 +193,36 @@ export const DailyAttendance: React.FC<DailyAttendanceProps> = ({
     }
   };
 
-  // OD Sheet Handlers
+  // Reason Sheet Handlers (OD & Leave)
   const handleOpenODSheetForStudent = (studentId: string) => {
+    setSheetType('od');
     setSheetStudentIds([studentId]);
   };
 
-  const handleSaveODReasonFromSheet = (reason: string) => {
+  const handleOpenLeaveSheetForStudent = (studentId: string) => {
+    setSheetType('leave');
+    setSheetStudentIds([studentId]);
+  };
+
+  const handleSaveReasonFromSheet = (reason: string) => {
     if (!sheetStudentIds || sheetStudentIds.length === 0) return;
 
-    if (sheetStudentIds.length === 1) {
-      onSaveODReason(sheetStudentIds[0], reason);
+    if (sheetType === 'leave') {
+      if (sheetStudentIds.length === 1) {
+        onSaveLeaveReason(sheetStudentIds[0], reason);
+      } else {
+        sheetStudentIds.forEach((id) => onSaveLeaveReason(id, reason));
+        setSelectedIds(new Set());
+        setIsSelectionMode(false);
+      }
     } else {
-      onBatchStatusChange(sheetStudentIds, 'od', reason);
-      setSelectedIds(new Set());
-      setIsSelectionMode(false);
+      if (sheetStudentIds.length === 1) {
+        onSaveODReason(sheetStudentIds[0], reason);
+      } else {
+        onBatchStatusChange(sheetStudentIds, 'od', reason);
+        setSelectedIds(new Set());
+        setIsSelectionMode(false);
+      }
     }
     setSheetStudentIds(null);
   };
@@ -195,13 +245,20 @@ export const DailyAttendance: React.FC<DailyAttendanceProps> = ({
 
   const sheetInitialReason = useMemo(() => {
     if (sheetStudentIds && sheetStudentIds.length === 1) {
-      return odReasons[sheetStudentIds[0]] || '';
+      const sid = sheetStudentIds[0];
+      return sheetType === 'leave' ? leaveReasons[sid] || '' : odReasons[sid] || '';
     }
     return '';
-  }, [sheetStudentIds, odReasons]);
+  }, [sheetStudentIds, sheetType, leaveReasons, odReasons]);
+
+  // Determine Save Button Label:
+  // If no unsaved changes AND this date has already been saved -> "Saved"
+  // When anything changes afterwards -> "Save"
+  const isAlreadySaved = !hasUnsavedChanges && isSavedForDate;
+  const saveButtonLabel = isAlreadySaved ? 'Saved' : 'Save';
 
   return (
-    <div className="pb-28">
+    <div className="pb-32">
       {/* Sticky Live Counter Bar (Total, Present, Leave, OD) */}
       <StickyCounter
         total={counts.total}
@@ -209,14 +266,13 @@ export const DailyAttendance: React.FC<DailyAttendanceProps> = ({
         leave={counts.leave}
         od={counts.od}
         totalAbsent={counts.totalAbsent}
-        onOpenReport={onOpenReport}
         onResetDay={() => setShowResetConfirm(true)}
         activeFilter={activeFilter}
         onSelectFilter={(f) => setActiveFilter((prev) => (prev === f ? 'all' : f))}
       />
 
       <div className="max-w-2xl mx-auto px-3 py-3 space-y-3">
-        {/* Header Metadata Banner: Editable Class Name, Date, and Faculty Address */}
+        {/* Header Metadata Banner: Editable Class Name, Date, Faculty Address & Last Saved Line */}
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3 shadow-xs space-y-2.5">
           {/* Top row: Editable Class Name and Faculty Salutation */}
           <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -278,7 +334,7 @@ export const DailyAttendance: React.FC<DailyAttendanceProps> = ({
             <button
               type="button"
               onClick={() => onDateChange(shiftDate(currentDate, -1))}
-              className="p-1.5 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-95 transition-all touch-target flex items-center justify-center shrink-0"
+              className="p-1.5 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-95 transition-all touch-target flex items-center justify-center shrink-0 cursor-pointer"
               title="Previous Day"
               aria-label="Previous Day"
             >
@@ -315,11 +371,107 @@ export const DailyAttendance: React.FC<DailyAttendanceProps> = ({
             <button
               type="button"
               onClick={() => onDateChange(shiftDate(currentDate, 1))}
-              className="p-1.5 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-95 transition-all touch-target flex items-center justify-center shrink-0"
+              className="p-1.5 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-95 transition-all touch-target flex items-center justify-center shrink-0 cursor-pointer"
               title="Next Day"
               aria-label="Next Day"
             >
               <ChevronRight size={18} />
+            </button>
+          </div>
+
+          {/* Last Saved Line on Main Screen (Requirement 4) */}
+          <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100 dark:border-slate-800 text-xs">
+            <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 min-w-0">
+              <Clock size={13} className="text-slate-400 shrink-0" />
+              <span className="font-medium truncate text-[11px] sm:text-xs">
+                {savedAtTime ? `Last saved: ${formatSavedDateTime(savedAtTime)}` : 'Last saved: Not saved yet for this date'}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-1 shrink-0">
+              {saveMessage ? (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 animate-in fade-in">
+                  <Check size={11} className="text-emerald-600" />
+                  <span>{saveMessage}</span>
+                </span>
+              ) : hasUnsavedChanges ? (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                  <span>Unsaved changes</span>
+                </span>
+              ) : isSavedForDate ? (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                  <Check size={11} className="text-emerald-600" />
+                  <span>Saved</span>
+                </span>
+              ) : null}
+            </div>
+          </div>
+        </div>
+
+        {/* Primary Action Toolbar Card (Save, Download PDF, WhatsApp, Copy) */}
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-2.5 shadow-xs flex items-center justify-between gap-2 flex-wrap">
+          {/* Main Primary Button: Save (placed next to Download PDF) */}
+          <div className="flex items-center gap-2 flex-1 min-w-[260px]">
+            <button
+              type="button"
+              onClick={onSaveDay}
+              disabled={isSaving}
+              className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl font-bold text-xs sm:text-sm shadow-sm active:scale-95 transition-all touch-target cursor-pointer ${
+                isAlreadySaved
+                  ? 'bg-emerald-700 text-white hover:bg-emerald-800'
+                  : 'bg-emerald-600 text-white hover:bg-emerald-700'
+              }`}
+              title="Save snapshot for this date"
+            >
+              {isSaving ? (
+                <Loader2 size={16} className="animate-spin text-white" />
+              ) : isAlreadySaved ? (
+                <Check size={16} className="text-white" />
+              ) : (
+                <Save size={16} className="text-white" />
+              )}
+              <span>{saveButtonLabel}</span>
+            </button>
+
+            {/* Keep Download PDF Button (next to Save) */}
+            <button
+              type="button"
+              onClick={onDownloadPDF}
+              disabled={isPdfGenerating}
+              className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-semibold text-xs sm:text-sm active:scale-95 transition-all touch-target cursor-pointer disabled:opacity-50"
+              title="Download Attendance PDF report"
+            >
+              {isPdfGenerating ? (
+                <Loader2 size={16} className="animate-spin text-emerald-600" />
+              ) : (
+                <Download size={16} className="text-emerald-600 dark:text-emerald-400" />
+              )}
+              <span className="hidden xs:inline">{isPdfGenerating ? 'PDF...' : 'Download PDF'}</span>
+              <span className="xs:hidden">PDF</span>
+            </button>
+          </div>
+
+          {/* Quick Share Actions: WhatsApp & Copy Report text */}
+          <div className="flex items-center gap-1.5 shrink-0 ml-auto">
+            <button
+              type="button"
+              onClick={onSendWhatsApp}
+              className="flex items-center gap-1 py-2 px-3 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs shadow-xs active:scale-95 transition-all touch-target cursor-pointer"
+              title="Send report directly to WhatsApp"
+            >
+              <MessageSquare size={14} />
+              <span>WhatsApp</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={onCopyReport}
+              className="flex items-center gap-1 py-2 px-3 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-semibold text-xs active:scale-95 transition-all touch-target cursor-pointer"
+              title="Copy attendance report text to clipboard"
+            >
+              {isCopied ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />}
+              <span>{isCopied ? 'Copied!' : 'Copy'}</span>
             </button>
           </div>
         </div>
@@ -339,7 +491,7 @@ export const DailyAttendance: React.FC<DailyAttendanceProps> = ({
               <button
                 type="button"
                 onClick={() => setSearchQuery('')}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
                 aria-label="Clear search"
               >
                 <X size={15} />
@@ -354,7 +506,7 @@ export const DailyAttendance: React.FC<DailyAttendanceProps> = ({
               setIsSelectionMode(!isSelectionMode);
               setSelectedIds(new Set());
             }}
-            className={`px-3 py-2 rounded-xl text-xs font-bold border transition-all flex items-center gap-1.5 shrink-0 touch-target ${
+            className={`px-3 py-2 rounded-xl text-xs font-bold border transition-all flex items-center gap-1.5 shrink-0 touch-target cursor-pointer ${
               isSelectionMode
                 ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
                 : 'bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
@@ -371,7 +523,7 @@ export const DailyAttendance: React.FC<DailyAttendanceProps> = ({
           <button
             type="button"
             onClick={() => setActiveFilter('all')}
-            className={`px-3 py-1 rounded-full font-bold transition-all whitespace-nowrap ${
+            className={`px-3 py-1 rounded-full font-bold transition-all whitespace-nowrap cursor-pointer ${
               activeFilter === 'all'
                 ? 'bg-slate-800 text-white dark:bg-slate-100 dark:text-slate-900 shadow-xs'
                 : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700'
@@ -383,7 +535,7 @@ export const DailyAttendance: React.FC<DailyAttendanceProps> = ({
           <button
             type="button"
             onClick={() => setActiveFilter('present')}
-            className={`px-3 py-1 rounded-full font-bold transition-all whitespace-nowrap ${
+            className={`px-3 py-1 rounded-full font-bold transition-all whitespace-nowrap cursor-pointer ${
               activeFilter === 'present'
                 ? 'bg-emerald-600 text-white shadow-xs'
                 : 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900/50'
@@ -395,7 +547,7 @@ export const DailyAttendance: React.FC<DailyAttendanceProps> = ({
           <button
             type="button"
             onClick={() => setActiveFilter('leave')}
-            className={`px-3 py-1 rounded-full font-bold transition-all whitespace-nowrap ${
+            className={`px-3 py-1 rounded-full font-bold transition-all whitespace-nowrap cursor-pointer ${
               activeFilter === 'leave'
                 ? 'bg-rose-600 text-white shadow-xs'
                 : 'bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-900/50'
@@ -407,7 +559,7 @@ export const DailyAttendance: React.FC<DailyAttendanceProps> = ({
           <button
             type="button"
             onClick={() => setActiveFilter('od')}
-            className={`px-3 py-1 rounded-full font-bold transition-all whitespace-nowrap ${
+            className={`px-3 py-1 rounded-full font-bold transition-all whitespace-nowrap cursor-pointer ${
               activeFilter === 'od'
                 ? 'bg-blue-600 text-white shadow-xs'
                 : 'bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-900/50'
@@ -424,7 +576,7 @@ export const DailyAttendance: React.FC<DailyAttendanceProps> = ({
               <button
                 type="button"
                 onClick={handleSelectAllFiltered}
-                className="text-xs font-bold text-blue-700 dark:text-blue-300 hover:underline flex items-center gap-1"
+                className="text-xs font-bold text-blue-700 dark:text-blue-300 hover:underline flex items-center gap-1 cursor-pointer"
               >
                 {selectedIds.size === filteredStudents.length && filteredStudents.length > 0 ? (
                   <CheckSquare size={15} />
@@ -445,7 +597,7 @@ export const DailyAttendance: React.FC<DailyAttendanceProps> = ({
                 type="button"
                 disabled={selectedIds.size === 0}
                 onClick={() => handleBatchMark('present')}
-                className="px-2.5 py-1 rounded-lg bg-emerald-600 text-white font-bold text-xs hover:bg-emerald-700 disabled:opacity-40 active:scale-95 transition-all"
+                className="px-2.5 py-1 rounded-lg bg-emerald-600 text-white font-bold text-xs hover:bg-emerald-700 disabled:opacity-40 active:scale-95 transition-all cursor-pointer"
               >
                 P
               </button>
@@ -453,7 +605,7 @@ export const DailyAttendance: React.FC<DailyAttendanceProps> = ({
                 type="button"
                 disabled={selectedIds.size === 0}
                 onClick={() => handleBatchMark('leave')}
-                className="px-2.5 py-1 rounded-lg bg-rose-600 text-white font-bold text-xs hover:bg-rose-700 disabled:opacity-40 active:scale-95 transition-all"
+                className="px-2.5 py-1 rounded-lg bg-rose-600 text-white font-bold text-xs hover:bg-rose-700 disabled:opacity-40 active:scale-95 transition-all cursor-pointer"
               >
                 L
               </button>
@@ -461,7 +613,7 @@ export const DailyAttendance: React.FC<DailyAttendanceProps> = ({
                 type="button"
                 disabled={selectedIds.size === 0}
                 onClick={() => handleBatchMark('od')}
-                className="px-2.5 py-1 rounded-lg bg-blue-600 text-white font-bold text-xs hover:bg-blue-700 disabled:opacity-40 active:scale-95 transition-all"
+                className="px-2.5 py-1 rounded-lg bg-blue-600 text-white font-bold text-xs hover:bg-blue-700 disabled:opacity-40 active:scale-95 transition-all cursor-pointer"
               >
                 OD...
               </button>
@@ -483,7 +635,7 @@ export const DailyAttendance: React.FC<DailyAttendanceProps> = ({
                 <button
                   type="button"
                   onClick={() => setShowResetConfirm(false)}
-                  className="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
                 >
                   Cancel
                 </button>
@@ -493,7 +645,7 @@ export const DailyAttendance: React.FC<DailyAttendanceProps> = ({
                     onResetDay();
                     setShowResetConfirm(false);
                   }}
-                  className="px-3.5 py-1.5 rounded-lg text-xs font-bold bg-rose-600 text-white hover:bg-rose-700"
+                  className="px-3.5 py-1.5 rounded-lg text-xs font-bold bg-rose-600 text-white hover:bg-rose-700 cursor-pointer"
                 >
                   Yes, Reset All
                 </button>
@@ -530,8 +682,10 @@ export const DailyAttendance: React.FC<DailyAttendanceProps> = ({
                 student={student}
                 status={attendance[student.id] || 'present'}
                 odReason={odReasons[student.id]}
+                leaveReason={leaveReasons[student.id]}
                 onChangeStatus={onStatusChange}
                 onOpenODSheet={handleOpenODSheetForStudent}
+                onOpenLeaveSheet={handleOpenLeaveSheetForStudent}
                 isSelectionMode={isSelectionMode}
                 isSelected={selectedIds.has(student.id)}
                 onToggleSelect={handleToggleSelect}
@@ -541,36 +695,78 @@ export const DailyAttendance: React.FC<DailyAttendanceProps> = ({
         </div>
       </div>
 
-      {/* OD Reason Bottom Sheet */}
+      {/* Reason Bottom Sheet (OD or Leave) */}
       <ODReasonSheet
         isOpen={Boolean(sheetStudentIds && sheetStudentIds.length > 0)}
         onClose={() => setSheetStudentIds(null)}
+        type={sheetType}
         studentNames={sheetStudentNames}
         initialReason={sheetInitialReason}
-        recentReasons={recentOdReasons}
-        onSaveReason={handleSaveODReasonFromSheet}
+        recentReasons={sheetType === 'leave' ? recentLeaveReasons : recentOdReasons}
+        onSaveReason={handleSaveReasonFromSheet}
       />
 
-      {/* Floating Bottom Bar on Mobile for Instant Faculty Report */}
+      {/* Floating Bottom Bar for Instant Action (Save, Download PDF, WhatsApp) */}
       <div className="fixed bottom-0 left-0 right-0 z-20 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 safe-bottom shadow-lg">
-        <div className="max-w-2xl mx-auto px-3 py-2 flex items-center justify-between gap-3">
-          <div className="flex flex-col">
+        <div className="max-w-2xl mx-auto px-3 py-2 flex items-center justify-between gap-2">
+          <div className="flex flex-col min-w-0">
             <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">
-              Ready for WhatsApp?
+              {hasUnsavedChanges ? 'Unsaved changes' : isAlreadySaved ? 'All saved' : 'Ready to save'}
             </span>
-            <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
-              {counts.leave} Leave · {counts.od} OD · {counts.present} Present
+            <span className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">
+              {counts.leave} L · {counts.od} OD · {counts.present} P
             </span>
           </div>
 
-          <button
-            type="button"
-            onClick={onOpenReport}
-            className="flex items-center gap-2 py-2 px-4 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold rounded-xl text-xs sm:text-sm shadow-md transition-all touch-target"
-          >
-            <FileText size={16} />
-            <span>View & Send Report</span>
-          </button>
+          <div className="flex items-center gap-1.5 shrink-0">
+            {/* Primary Save Button */}
+            <button
+              type="button"
+              onClick={onSaveDay}
+              disabled={isSaving}
+              className={`flex items-center gap-1.5 py-2 px-3.5 rounded-xl text-xs sm:text-sm font-bold shadow-md active:scale-95 transition-all touch-target cursor-pointer ${
+                isAlreadySaved
+                  ? 'bg-emerald-700 text-white hover:bg-emerald-800'
+                  : 'bg-emerald-600 text-white hover:bg-emerald-700'
+              }`}
+            >
+              {isSaving ? (
+                <Loader2 size={16} className="animate-spin text-white" />
+              ) : isAlreadySaved ? (
+                <Check size={16} className="text-white" />
+              ) : (
+                <Save size={16} className="text-white" />
+              )}
+              <span>{saveButtonLabel}</span>
+            </button>
+
+            {/* Download PDF button next to Save */}
+            <button
+              type="button"
+              onClick={onDownloadPDF}
+              disabled={isPdfGenerating}
+              className="flex items-center gap-1.5 py-2 px-3 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold text-xs sm:text-sm active:scale-95 transition-all touch-target cursor-pointer disabled:opacity-50"
+              title="Download Attendance PDF"
+            >
+              {isPdfGenerating ? (
+                <Loader2 size={15} className="animate-spin text-emerald-600" />
+              ) : (
+                <Download size={15} className="text-emerald-600 dark:text-emerald-400" />
+              )}
+              <span className="hidden xs:inline">{isPdfGenerating ? 'PDF...' : 'PDF'}</span>
+            </button>
+
+            {/* WhatsApp */}
+            <button
+              type="button"
+              onClick={onSendWhatsApp}
+              className="flex items-center gap-1 py-2 px-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs shadow-xs active:scale-95 transition-all touch-target cursor-pointer"
+              title="Send to WhatsApp"
+            >
+              <MessageSquare size={15} />
+              <span className="hidden sm:inline">WhatsApp</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>

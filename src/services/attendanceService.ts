@@ -14,6 +14,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   className: 'II Year AI&DS - B',
   darkMode: false,
   recentOdReasons: ['Hackathon', 'Sports', 'Paper presentation', 'Symposium', 'Workshop'],
+  recentLeaveReasons: ['Fever', 'Family function', 'Medical', 'Personal', 'Out of station'],
 };
 
 /**
@@ -137,13 +138,27 @@ class AttendanceService {
   }
 
   /**
+   * Check if a record exists for a date
+   */
+  async hasRecord(date: string): Promise<boolean> {
+    const allRecords = await this.getAllAttendanceHistory();
+    return Boolean(allRecords[date]);
+  }
+
+  /**
    * Save or update attendance record for a date
    */
-  async saveDailyAttendance(record: DailyAttendanceRecord): Promise<void> {
+  async saveDailyAttendance(record: DailyAttendanceRecord): Promise<DailyAttendanceRecord> {
     try {
       const allRecords = await this.getAllAttendanceHistory();
-      allRecords[record.date] = record;
+      const updatedRecord: DailyAttendanceRecord = {
+        ...record,
+        savedAt: record.savedAt || new Date().toISOString(),
+        lastUpdated: new Date().toISOString(),
+      };
+      allRecords[record.date] = updatedRecord;
       localStorage.setItem(STORAGE_KEYS.RECORDS, JSON.stringify(allRecords));
+      return updatedRecord;
     } catch (err) {
       console.error(`Error saving attendance for ${record.date}:`, err);
       throw err;
@@ -167,6 +182,7 @@ class AttendanceService {
       for (const [date, rec] of Object.entries(parsed)) {
         const attendance: Record<string, AttendanceStatus> = {};
         const odReasons: Record<string, string> = { ...(rec.odReasons || {}) };
+        const leaveReasons: Record<string, string> = { ...(rec.leaveReasons || {}) };
 
         for (const [sId, rawStatus] of Object.entries(rec.attendance || {})) {
           if (rawStatus === 'hackathon') {
@@ -195,12 +211,21 @@ class AttendanceService {
           else if (st === 'od') od++;
         }
 
-        const totalStudents = rec.totalStudents || 63;
+        const totalStudents = rec.totalStudents || Object.keys(attendance).length || 63;
+        const totalAbsent = leave; // Invariant: leave only
+
         migratedRecords[date] = {
           date: rec.date || date,
+          className: rec.className || 'II Year AI&DS - B',
+          facultyAddress: rec.facultyAddress || rec.salutation || 'Mam',
+          salutation: rec.salutation || rec.facultyAddress || 'Mam',
+          savedAt: rec.savedAt || rec.lastUpdated || new Date().toISOString(),
+          lastUpdated: rec.lastUpdated || rec.savedAt || new Date().toISOString(),
+          reportText: rec.reportText || '',
+          studentsList: rec.studentsList,
           attendance,
           odReasons,
-          lastUpdated: rec.lastUpdated || new Date().toISOString(),
+          leaveReasons,
           totalStudents,
           counts: {
             total: totalStudents,
@@ -208,7 +233,7 @@ class AttendanceService {
             leave,
             od,
             presentAndOd: present + od,
-            totalAbsent: leave,
+            totalAbsent,
           },
         };
       }
@@ -249,6 +274,9 @@ class AttendanceService {
         recentOdReasons: Array.isArray(parsed.recentOdReasons) && parsed.recentOdReasons.length > 0
           ? parsed.recentOdReasons
           : DEFAULT_SETTINGS.recentOdReasons,
+        recentLeaveReasons: Array.isArray(parsed.recentLeaveReasons) && parsed.recentLeaveReasons.length > 0
+          ? parsed.recentLeaveReasons
+          : DEFAULT_SETTINGS.recentLeaveReasons,
       };
     } catch (err) {
       console.error('Error reading settings:', err);
@@ -289,6 +317,27 @@ class AttendanceService {
     const updated = [trimmed, ...filtered].slice(0, 8); // Keep last 8
 
     await this.saveSettings({ recentOdReasons: updated });
+    return updated;
+  }
+
+  /**
+   * Add a reason to the recent Leave reasons list (max 8, case-insensitive deduplication, most recent first)
+   */
+  async addRecentLeaveReason(reason: string): Promise<string[]> {
+    const trimmed = reason.trim();
+    if (!trimmed) {
+      const s = await this.getSettings();
+      return s.recentLeaveReasons || DEFAULT_SETTINGS.recentLeaveReasons || [];
+    }
+
+    const current = await this.getSettings();
+    const existingList = current.recentLeaveReasons || DEFAULT_SETTINGS.recentLeaveReasons || [];
+
+    // Filter out existing reason with same lowercase to avoid duplication
+    const filtered = existingList.filter((r) => r.trim().toLowerCase() !== trimmed.toLowerCase());
+    const updated = [trimmed, ...filtered].slice(0, 8); // Keep last 8
+
+    await this.saveSettings({ recentLeaveReasons: updated });
     return updated;
   }
 

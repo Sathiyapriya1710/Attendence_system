@@ -8,11 +8,28 @@ export interface Student {
   name: string;
 }
 
+export interface SavedStudentItem {
+  id: string;
+  sNo: number;
+  regNo: string;
+  name: string;
+  status: AttendanceStatus;
+  odReason: string;
+  leaveReason?: string;
+}
+
 export interface DailyAttendanceRecord {
   date: string; // ISO date 'YYYY-MM-DD'
-  attendance: Record<string, AttendanceStatus>; // studentId -> status
-  odReasons?: Record<string, string>; // studentId -> reason (free text)
+  className?: string;
+  facultyAddress?: string;
+  salutation?: string;
+  savedAt?: string; // ISO timestamp when snapshot was saved
   lastUpdated: string;
+  reportText?: string;
+  studentsList?: SavedStudentItem[];
+  attendance: Record<string, AttendanceStatus>; // studentId -> status
+  odReasons?: Record<string, string>; // studentId -> OD reason (free text)
+  leaveReasons?: Record<string, string>; // studentId -> Leave reason (free text)
   totalStudents: number;
   counts: {
     total: number;
@@ -31,6 +48,7 @@ export interface AppSettings {
   className: string; // default "II Year AI&DS - B"
   darkMode: boolean;
   recentOdReasons: string[]; // last 8 reasons used
+  recentLeaveReasons?: string[]; // last 8 leave reasons used
 }
 
 export interface StudentAttendanceStat {
